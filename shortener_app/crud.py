@@ -11,13 +11,11 @@ def get_db_url_by_key(db: Session, url_key: str) -> models.URL:
 
 
 def check_db_target_url(db: Session, target_url: str) -> models.URL:
-    result = (
+    return (
         db.query(models.URL)
         .filter(models.URL.target_url == target_url, models.URL.is_active)
         .first()
     )
-    print(result)
-    return result
 
 
 def get_db_url_by_secret_key(db: Session, secret_key: str) -> models.URL:
