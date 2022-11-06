@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class URLBase(BaseModel):
     target_url: str
+    url_key: str | None
 
 
 class URL(URLBase):

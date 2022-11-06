@@ -56,10 +56,17 @@ def forward_to_target_url(
         raise_not_found(request)
 
 
-@app.post("/url", response_model=schemas.URLInfo)
+@app.post("/url", response_model=schemas.URLInfo, response_model_exclude_unset=True)
 def create_url(url: schemas.URLBase, db: Session = Depends(get_db)):
     if not validators.url(url.target_url):
         raise_bad_request("Invalid URL provided")
+    if url.url_key:
+        if crud.get_db_url_by_key(db=db, url_key=url.url_key, is_active=False):
+            message = f"The url_key '{url.url_key}' is already taken, please use another one"
+            raise_bad_request(message)
+        else:
+            db_url = crud.create_db_url(db=db, url=url, custom_key=url.url_key)
+            return get_admin_info(db_url)
     db_url = crud.create_db_url(db=db, url=url)
     return get_admin_info(db_url)
 
