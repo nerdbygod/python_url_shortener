@@ -16,6 +16,7 @@ class URLBase(BaseModel):
 class URL(URLBase):
     is_active: bool
     clicks: int
+    last_clicked_at: str | None
 
     class Config:
         orm_mode = True

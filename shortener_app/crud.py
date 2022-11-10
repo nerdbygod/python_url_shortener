@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from . import keygen, models, schemas
 
 
@@ -48,6 +49,7 @@ def create_db_url(db: Session, url: schemas.URLBase, custom_key: str = None) -> 
 
 def update_db_clicks(db: Session, db_url: schemas.URL) -> models.URL:
     db_url.clicks += 1
+    db_url.last_clicked_at = func.now()
     db.commit()
     db.refresh(db_url)
     return db_url

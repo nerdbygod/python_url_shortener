@@ -56,7 +56,11 @@ def forward_to_target_url(
         raise_not_found(request)
 
 
-@app.post("/url", response_model=schemas.URLInfo, response_model_exclude_unset=True)
+@app.post("/url",
+          response_model=schemas.URLInfo,
+          response_model_exclude_unset=True,
+          response_model_exclude_none=True
+          )
 def create_url(url: schemas.URLBase, db: Session = Depends(get_db)):
     if not validators.url(url.target_url):
         raise_bad_request("Invalid URL provided")
