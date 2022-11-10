@@ -1,11 +1,16 @@
 from pydantic import BaseModel
 from fastapi import Query
-from config import get_settings
+from .config import get_settings
 
 
 class URLBase(BaseModel):
     target_url: str
-    url_key: str | None
+    url_key: str = Query(
+        default=None,
+        min_length=get_settings().url_key_min_length,
+        max_length=get_settings().url_key_max_length,
+        regex=r"[a-zA-Z0-9\-_]"
+    )
 
 
 class URL(URLBase):
@@ -22,4 +27,4 @@ class URLInfo(URL):
 
 
 class URLPeek(BaseModel):
-    shortened_url: str
+    shortened_url: str = Query(default=..., max_length=256)
