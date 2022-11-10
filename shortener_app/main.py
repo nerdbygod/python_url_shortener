@@ -56,10 +56,21 @@ def forward_to_target_url(
         raise_not_found(request)
 
 
-@app.post("/url", response_model=schemas.URLInfo)
+@app.post("/url",
+          response_model=schemas.URLInfo,
+          response_model_exclude_unset=True,
+          response_model_exclude_none=True
+          )
 def create_url(url: schemas.URLBase, db: Session = Depends(get_db)):
     if not validators.url(url.target_url):
         raise_bad_request("Invalid URL provided")
+    if url.url_key:
+        if crud.get_db_url_by_key(db=db, url_key=url.url_key, is_active=False):
+            message = f"The url_key '{url.url_key}' is already taken, please use another one"
+            raise_bad_request(message)
+        else:
+            db_url = crud.create_db_url(db=db, url=url, custom_key=url.url_key)
+            return get_admin_info(db_url)
     db_url = crud.create_db_url(db=db, url=url)
     return get_admin_info(db_url)
 
@@ -87,3 +98,24 @@ def deactivate_url(
         return {"detail": message}
     else:
         raise_not_found(request)
+
+
+@app.post(
+    "/peek",
+    name="See what's behind a shortened URL",
+)
+def peek_url(
+        url: schemas.URLPeek, db: Session = Depends(get_db)
+):
+    base_url = get_settings().base_url
+    if base_url in url.shortened_url:
+        url_key = url.shortened_url.replace(f"{base_url}/", '')
+        if db_url := crud.get_db_url_by_key(db=db, url_key=url_key):
+            print(db_url)
+            return {"target_url": db_url.target_url}
+        else:
+            message = "Target URL not found"
+            raise HTTPException(status_code=404, detail=message)
+    else:
+        message = "Invalid domain name"
+        raise_bad_request(message)
