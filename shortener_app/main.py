@@ -6,6 +6,7 @@ from . import crud, models, schemas
 from .database import SessionLocal, engine
 from starlette.datastructures import URL
 from .config import get_settings
+from string import ascii_letters, digits
 
 app = FastAPI()
 models.Base.metadata.create_all(bind=engine)
@@ -26,6 +27,16 @@ def raise_bad_request(message):
 def raise_not_found(request):
     message = f"URL '{request.url}' doesn't exist"
     raise HTTPException(status_code=404, detail=message)
+
+
+@validators.validator
+def validate_restricted_chars(value: any) -> bool:
+    allowed_chars = "-_" + ascii_letters + digits
+    value = str(value)
+    for char in value:
+        if char not in allowed_chars:
+            return False
+    return True
 
 
 def get_admin_info(db_url: models.URL) -> schemas.URLInfo:
@@ -61,12 +72,26 @@ def create_url(url: schemas.URLBase, db: Session = Depends(get_db)):
     if not validators.url(url.target_url):
         raise_bad_request("Invalid URL provided")
     if url.url_key:
+        min_length = get_settings().url_key_min_length
+        max_length = get_settings().url_key_max_length
         if crud.get_db_url_by_key(db=db, url_key=url.url_key, is_active=False):
             message = f"The url_key '{url.url_key}' is already taken, please use another one"
             raise_bad_request(message)
         else:
-            db_url = crud.create_db_url(db=db, url=url, custom_key=url.url_key)
-            return get_admin_info(db_url)
+            if not validate_restricted_chars(url.url_key):
+                message = f"The url_key contains restricted characters. " \
+                          f"Please make sure url_key contains only digits, Latin letters and - or _ characters."
+                raise_bad_request(message)
+            elif not validators.length(
+                    value=url.url_key,
+                    min=min_length,
+                    max=max_length
+            ):
+                message = f"The url_key should contain between {min_length} and {max_length} characters"
+                raise_bad_request(message)
+            else:
+                db_url = crud.create_db_url(db=db, url=url, custom_key=url.url_key)
+                return get_admin_info(db_url)
     db_url = crud.create_db_url(db=db, url=url)
     return get_admin_info(db_url)
 
@@ -94,3 +119,24 @@ def deactivate_url(
         return {"detail": message}
     else:
         raise_not_found(request)
+
+
+@app.post(
+    "/peek",
+    name="See what's behind a shortened URL",
+)
+def peek_url(
+        url: schemas.URLPeek, db: Session = Depends(get_db)
+):
+    base_url = get_settings().base_url
+    if base_url in url.shortened_url:
+        url_key = url.shortened_url.replace(f"{base_url}/", '')
+        if db_url := crud.get_db_url_by_key(db=db, url_key=url_key):
+            print(db_url)
+            return {"target_url": db_url.target_url}
+        else:
+            message = "Target URL not found"
+            raise HTTPException(status_code=404, detail=message)
+    else:
+        message = "Invalid domain name"
+        raise_bad_request(message)

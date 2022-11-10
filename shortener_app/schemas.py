@@ -1,4 +1,6 @@
 from pydantic import BaseModel
+from fastapi import Query
+from config import get_settings
 
 
 class URLBase(BaseModel):
@@ -17,3 +19,7 @@ class URL(URLBase):
 class URLInfo(URL):
     url: str
     admin_url: str
+
+
+class URLPeek(BaseModel):
+    shortened_url: str
