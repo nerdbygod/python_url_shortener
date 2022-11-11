@@ -1,4 +1,5 @@
 import validators
+import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -61,7 +62,17 @@ def forward_to_target_url(
 ):
     if db_url := crud.get_db_url_by_key(db=db, url_key=url_key, is_active=True):
         crud.update_db_clicks(db, db_url=db_url)
-        return RedirectResponse(db_url.target_url)
+        try:
+            target_url_get_response = httpx.head(db_url.target_url)
+            if target_url_get_response.status_code >= 400:
+                message = f"Warning: the target URL '{db_url.target_url}' is unreachable. " \
+                          f"Status code: {target_url_get_response.status_code}"
+                raise HTTPException(status_code=200, detail=message)
+            else:
+                return RedirectResponse(db_url.target_url)
+        except httpx.ConnectError:
+            message = f"Couldn't establish connection with the target URL: '{db_url.target_url}'"
+            raise HTTPException(status_code=200, detail=message)
     else:
         raise_not_found(request)
 
