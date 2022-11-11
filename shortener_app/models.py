@@ -14,3 +14,4 @@ class URL(Base):
     clicks = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_clicked_at = Column(DateTime(timezone=True))
+    deactivated_at = Column(DateTime(timezone=True))
